@@ -29,4 +29,30 @@ router.put("/updateTask/:id" , authenticateToken , updateTask)
 router.delete("/deleteTask/:id" , authenticateToken ,deleteTask);
 
 
+/**
+ * @swagger
+ * /api/users/register:
+ *   post:
+ *     summary: Register a new user
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: User registered successfully
+ *       400:
+ *         description: Invalid input
+ */
+router.post("/register", registerUser);
 export default router;
