@@ -1,4 +1,4 @@
-// swagger.js
+// swaggerConfig.js
 import swaggerJsdoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 
@@ -11,17 +11,23 @@ const options = {
       description: "API documentation for Terralogic Task Management Backend",
     },
     servers: [
+      { url: "http://localhost:8080", description: "Local Server" },
       {
-        url: "http://localhost:8080", // your local backend URL
-        description: "Local Server",
-      },
-      {
-        url: "https://node-js-api-hg8u.onrender.com", // replace with Render URL after deployment
+        url: "https://node-js-api-hg8u.onrender.com",
         description: "Production Server",
       },
     ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+        },
+      },
+    },
   },
-  apis: ["./routes/*.js"], // path where your route files exist
+  apis: ["./routes/*.js"], // path to your route files
 };
 
 const swaggerSpec = swaggerJsdoc(options);
