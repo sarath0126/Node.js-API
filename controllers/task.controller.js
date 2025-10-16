@@ -88,13 +88,12 @@ export const updateTask = async (req, res) => {
       return res.status(404).json({ message: "Task Not Found" });
     }
 
-    // ✅ Admin can update any task
     if (req.user.role === "admin") {
       const updatedTask = await Task.findByIdAndUpdate(id, updatedTaskData, { new: true });
       return res.status(200).json({ message: "Task Updated Successfully", updatedTask });
     }
 
-    // ✅ Manager can update only tasks they created
+
     if (req.user.role === "manager") {
       if (task.assignedBy.toString() !== req.user.id) {
         return res.status(403).json({ message: "Access Denied: Managers can only update their own created tasks" });
@@ -103,7 +102,6 @@ export const updateTask = async (req, res) => {
       return res.status(200).json({ message: "Task Updated Successfully", updatedTask });
     }
 
-    // ✅ Employee can only update their assigned task status
     if (req.user.role === "employee") {
       if (task.assignedTo.toString() !== req.user.id) {
         return res.status(403).json({ message: "Access Denied: You can only update your own task" });
@@ -112,7 +110,6 @@ export const updateTask = async (req, res) => {
       return res.status(200).json({ message: "Task Status Updated Successfully", updatedTask });
     }
 
-    // ✅ If role not found
     return res.status(403).json({ message: "Invalid Role" });
 
   } catch (err) {
