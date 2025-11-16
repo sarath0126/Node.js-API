@@ -1,50 +1,58 @@
 import { Task } from "../models/tasks.models.js";
 import { User } from "../models/users.models.js";
 import { Project } from "../models/project.models.js";
+import mongoose from "mongoose";
 
 
 export const createTask = async (req, res) => {
   try {
-    const { title, description, assignedTo, status, priority, dueDate, projectId } = req.body;
-    
-    if (req.user.role !== "admin" && req.user.role !== "manager") {
-      return res.status(403).json({ message: "Not Able To Assign" });
+    const { title, description, assignedTo, projectId, status, priority, dueDate } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(assignedTo)) {
+      return res.status(400).json({ message: "Invalid assignedTo ID" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(projectId)) {
+      return res.status(400).json({ message: "Invalid projectId" });
     }
 
     const user = await User.findById(assignedTo);
-    if (!user) {
-      return res.status(404).json({ message: "Assigned User Not Found" });
-    }
-
-    if (req.user.role === "manager" && user.role !== "employee") {
-      return res.status(403).json({ message: "Managers can assign tasks only to employees" });
-    }
-
     const project = await Project.findById(projectId);
-    if (!project || project.isDeleted) {
-      return res.status(404).json({ message: "Project Not Found" });
+
+    if (!user) {
+      return res.status(404).json({ message: "Employee not found" });
     }
 
-    // Create Task
+    if (!project) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+
+    if (!user.assignedProjects.includes(projectId)) {
+      return res.status(400).json({
+        message: `User ${user.username} is NOT assigned to this project. Task cannot be assigned.`,
+      });
+    }
+
+    // 5️⃣ Create task after validation
     const task = await Task.create({
       title,
       description,
       assignedTo,
       assignedBy: req.user.id,
+      projectId,
       status,
       priority,
       dueDate,
-      projectId,
     });
 
-    return res.status(201).json({ 
-      message: "Task Created Successfully", 
-      task 
+    res.status(201).json({
+      message: "Task created successfully",
+      task,
     });
 
   } catch (err) {
     console.error("Create Task Error:", err);
-    return res.status(500).json({ message: "Internal Server Error" });
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };
 

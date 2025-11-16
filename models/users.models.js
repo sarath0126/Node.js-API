@@ -54,7 +54,13 @@ const userSchema = new mongoose.Schema({
     },
     deletedAt : {
         type : Date
-    }
+    },
+    assignedProjects: [
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Project",
+        }
+    ],
 
 },{timestamps:true})
 

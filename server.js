@@ -6,7 +6,7 @@ import authRouter from "./routes/auth.routes.js";
 import { connectDB } from "./db/dbConfig.js";
 import { swaggerUi, swaggerSpec } from "./swagger/swaggerConfig.js";
 
-dotenv.config();
+dotenv.config({});
 const app = express();
 const PORT = process.env.PORT || 8080;
 app.use(cors());
