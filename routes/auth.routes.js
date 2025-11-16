@@ -22,6 +22,15 @@
     updateTask,
   } from "../controllers/task.controller.js";
 
+
+
+  import {
+  createProject,
+  getAllProjects,
+  updateProject,
+  deleteProject,
+} from "../controllers/project.controller.js";
+
   const router = express.Router();
 
   /**
@@ -352,3 +361,127 @@
   router.delete("/deleteTask/:id", authenticateToken, deleteTask);
 
   export default router;
+
+
+
+  /**
+ * @swagger
+ * tags:
+ *   - name: Projects
+ *     description: Project management routes
+ */
+
+/**
+ * @swagger
+ * /api/users/createProject:
+ *   post:
+ *     summary: Create a new project (Admin, Manager)
+ *     tags: [Projects]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               startDate:
+ *                 type: string
+ *               endDate:
+ *                 type: string
+ *               teamMembers:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       201:
+ *         description: Project created successfully
+ */
+router.post(
+  "/createProject",
+  authenticateToken,
+  authorizeRole("admin", "manager"),
+  createProject
+);
+
+
+/**
+ * @swagger
+ * /api/users/getProjects:
+ *   get:
+ *     summary: Get all projects (Authenticated users)
+ *     tags: [Projects]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of all projects
+ */
+router.get(
+  "/getProjects",
+  authenticateToken,
+  getAllProjects
+);
+
+
+/**
+ * @swagger
+ * /api/users/updateProject/{id}:
+ *   put:
+ *     summary: Update a project (Admin, Manager)
+ *     tags: [Projects]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Project updated successfully
+ */
+router.put(
+  "/updateProject/:id",
+  authenticateToken,
+  authorizeRole("admin", "manager"),
+  updateProject
+);
+
+
+/**
+ * @swagger
+ * /api/users/deleteProject/{id}:
+ *   delete:
+ *     summary: Delete a project (Admin only)
+ *     tags: [Projects]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Project deleted successfully
+ */
+router.delete(
+  "/deleteProject/:id",
+  authenticateToken,
+  authorizeRole("admin"),
+  deleteProject
+);

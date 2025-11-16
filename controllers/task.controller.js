@@ -1,26 +1,31 @@
 import { Task } from "../models/tasks.models.js";
 import { User } from "../models/users.models.js";
+import { Project } from "../models/project.models.js";
 
-// create Task
 
 export const createTask = async (req, res) => {
   try {
-    const { title, description, assignedTo, status, priority, dueDate } = req.body;
-
+    const { title, description, assignedTo, status, priority, dueDate, projectId } = req.body;
+    
     if (req.user.role !== "admin" && req.user.role !== "manager") {
       return res.status(403).json({ message: "Not Able To Assign" });
     }
 
     const user = await User.findById(assignedTo);
-    if(!user){
-      return res.status(200).json({message : "User Not Found"});
+    if (!user) {
+      return res.status(404).json({ message: "Assigned User Not Found" });
     }
-    
 
     if (req.user.role === "manager" && user.role !== "employee") {
       return res.status(403).json({ message: "Managers can assign tasks only to employees" });
     }
 
+    const project = await Project.findById(projectId);
+    if (!project || project.isDeleted) {
+      return res.status(404).json({ message: "Project Not Found" });
+    }
+
+    // Create Task
     const task = await Task.create({
       title,
       description,
@@ -29,129 +34,180 @@ export const createTask = async (req, res) => {
       status,
       priority,
       dueDate,
+      projectId,
     });
 
-    res.status(201).json({ message: "Task Created Successfully", task });
+    return res.status(201).json({ 
+      message: "Task Created Successfully", 
+      task 
+    });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Internal Server Error" });
+    console.error("Create Task Error:", err);
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
-
-// Get Task
 
 export const getTasks = async (req, res) => {
   try {
     let tasks;
 
     if (req.user.role === "admin") {
-      tasks = await Task.find().populate(
-        "assignedTo assignedBy",
-        "username role email"
-      );
-    } 
+      // Admin gets all tasks
+      tasks = await Task.find({ isDeleted: false })
+        .populate("assignedTo assignedBy projectId", "username email role title");
+    }
+
     else if (req.user.role === "manager") {
-      tasks = await Task.find({ assignedBy: req.user.id }).populate(
-        "assignedTo assignedBy",
-        "username role email"
-      );
-    } 
+      // Manager gets only tasks they created
+      tasks = await Task.find({ 
+        assignedBy: req.user.id,
+        isDeleted: false 
+      }).populate("assignedTo assignedBy projectId", "username email role title");
+    }
+
     else if (req.user.role === "employee") {
-      tasks = await Task.find({ assignedTo: req.user.id }).populate(
-        "assignedTo assignedBy",
-        "username role email"
-      );
-    } 
-    
+      // Employee gets tasks assigned to them
+      tasks = await Task.find({ 
+        assignedTo: req.user.id,
+        isDeleted: false 
+      }).populate("assignedTo assignedBy projectId", "username email role title");
+    }
+
     else {
       return res.status(403).json({ message: "Access Denied" });
     }
 
-    res.status(200).json({tasks , message: "Tasks Fetched Successfully"});
+    return res.status(200).json({
+      message: "Tasks Fetched Successfully",
+      tasks
+    });
+
   } catch (err) {
-    return res.status(500).json({message : "Internal Server Error !"});
+    console.error("Get Tasks Error:", err);
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
 
-// Update Tasks
 
 export const updateTask = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, assignedTo, status, priority, dueDate } = req.body;
-    const updatedTaskData = { title, description, assignedTo, status, priority, dueDate };
+    const { title, description, assignedTo, status, priority, dueDate, projectId } = req.body;
 
     const task = await Task.findById(id);
-    if (!task) {
+    if (!task || task.isDeleted) {
       return res.status(404).json({ message: "Task Not Found" });
     }
 
     if (req.user.role === "admin") {
-      const updatedTask = await Task.findByIdAndUpdate(id, updatedTaskData, { new: true });
+      const updatedTask = await Task.findByIdAndUpdate(
+        id,
+        { title, description, assignedTo, status, priority, dueDate, projectId },
+        { new: true }
+      );
       return res.status(200).json({ message: "Task Updated Successfully", updatedTask });
     }
-
 
     if (req.user.role === "manager") {
       if (task.assignedBy.toString() !== req.user.id) {
-        return res.status(403).json({ message: "Access Denied: Managers can only update their own created tasks" });
+        return res.status(403).json({ message: "Managers can update only tasks they assigned" });
       }
-      const updatedTask = await Task.findByIdAndUpdate(id, updatedTaskData, { new: true });
+
+      const updatedTask = await Task.findByIdAndUpdate(
+        id,
+        { title, description, assignedTo, status, priority, dueDate, projectId },
+        { new: true }
+      );
       return res.status(200).json({ message: "Task Updated Successfully", updatedTask });
     }
 
+
     if (req.user.role === "employee") {
       if (task.assignedTo.toString() !== req.user.id) {
-        return res.status(403).json({ message: "Access Denied: You can only update your own task" });
+        return res.status(403).json({ message: "You can only update your own tasks" });
       }
-      const updatedTask = await Task.findByIdAndUpdate(id, { status }, { new: true });
-      return res.status(200).json({ message: "Task Status Updated Successfully", updatedTask });
+
+      const updatedTask = await Task.findByIdAndUpdate(
+        id,
+        { status },
+        { new: true }
+      );
+      return res.status(200).json({
+        message: "Task Status Updated Successfully",
+        updatedTask
+      });
     }
 
     return res.status(403).json({ message: "Invalid Role" });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Internal Server Error" });
+    console.error("Update Task Error:", err);
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
-// Delete Task
 
-export const deleteTask  = async(req,res)=>{
-    try{
-        const  {id} = req.params;
-        const task = await Task.findById(id);
-        if(!task){
-            return res.status(404).json({message : "Task Not Found"});
-        }
 
-        if(req.user.role === "admin"){
-            task.isDeleted = true;
-            await task.save();
-            return res.status(200).json({message : "Deleted Success by admin"})
-        }
+export const deleteTask = async (req, res) => {
+  try {
+    const { id } = req.params;
 
-        else if(req.user.role === "manager"){
-            if(task.assignedBy != req.user.id){
-                return res.status(401).json({message : "Access Denied can not delete"})
-            }
-
-            task.isDeleted = true;
-            await task.save();
-            return res.status(200).json({message : "Deleted Success By Manager"})
-        }
-
-        else if(req.user.role === "employee"){
-            return res.status(403).json({message : "Employee cannot delete"})
-        }
-        else{
-            return res.status(403).json({message : "No Role"})
-        }
+    const task = await Task.findById(id);
+    if (!task || task.isDeleted) {
+      return res.status(404).json({ message: "Task Not Found" });
     }
-    catch(err){
-        res.status(500).json({ message: "Internal Server Error" });
-    }    
-}
+
+    if (req.user.role === "admin") {
+      task.isDeleted = true;
+      await task.save();
+      return res.status(200).json({ message: "Task Deleted by Admin" });
+    }
+
+    
+    if (req.user.role === "manager") {
+      if (task.assignedBy.toString() !== req.user.id) {
+        return res.status(403).json({ message: "Managers can delete only tasks they created" });
+      }
+
+      task.isDeleted = true;
+      await task.save();
+      return res.status(200).json({ message: "Task Deleted by Manager" });
+    }
+
+    if (req.user.role === "employee") {
+      return res.status(403).json({ message: "Employees cannot delete tasks" });
+    }
+
+    return res.status(403).json({ message: "Invalid Role" });
+
+  } catch (err) {
+    console.error("Delete Task Error:", err);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+
+
+export const getProjectTasks = async (req, res) => {
+  try {
+    const projectId = req.params.id;
+
+    const tasks = await Task.find({
+      projectId,
+      isDeleted: false
+    }).populate("assignedTo assignedBy", "username email role");
+
+    return res.status(200).json({
+      message: "Project Tasks Fetched Successfully",
+      tasks,
+      count: tasks.length
+    });
+
+  } catch (err) {
+    console.error("Project Tasks Error:", err);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
